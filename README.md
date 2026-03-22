@@ -2,27 +2,73 @@
 
 This repository contains a production-grade, failure-aware microservice system designed with **Site Reliability Engineering (SRE)** principles at its core. It is not just a functional application; it is a platform built to be observable, measurable, alertable, and recoverable.
 
+## 🏗️ Architecture & Component Flow
+
+```mermaid
+graph TD
+    subgraph "External Traffic"
+        U[User/Client]
+    end
+
+    subgraph "Microservice Pod (FastAPI)"
+        MW[Observability Middleware]
+        FI[Failure Injection Engine]
+        AUTH[JWT Authentication]
+        API[API Handlers]
+        DB_CONN[SQLAlchemy Async Engine]
+        
+        U --> MW
+        MW --> FI
+        FI --> AUTH
+        AUTH --> API
+        API --> DB_CONN
+    end
+
+    subgraph "Infrastructure"
+        DB[(PostgreSQL)]
+        DB_CONN --- DB
+    end
+
+    subgraph "Observability Stack"
+        PROM[Prometheus]
+        GRAF[Grafana]
+        TEM[Tempo - Tracing]
+        LOK[Loki - Logging]
+        
+        MW -.-> PROM
+        MW -.-> TEM
+        API -.-> LOK
+        PROM --> GRAF
+        TEM --> GRAF
+        LOK --> GRAF
+    end
+
+    subgraph "SRE & Resilience"
+        CH[Chaos Experiments]
+        RB[Runbooks]
+        
+        CH -- Injects --- FI
+        PROM -- Alerts --- RB
+    end
+```
+
 ## 🚀 Key Features
 
-* **Failure-Aware Application**: FastAPI microservice with built-in failure injection (latency, errors, memory leaks).
-* **Full Observability Stack**:
-  * **Prometheus**: Metrics collection and SLA-based alerting.
-  * **Grafana**: "Golden Signals" dashboards for real-time monitoring.
 *   **Failure-Aware Application**: FastAPI microservice with built-in failure injection (latency, errors, memory leaks).
 *   **Full Observability Stack**:
     *   **Prometheus**: Metrics collection and SLA-based alerting.
     *   **Grafana**: "Golden Signals" dashboards for real-time monitoring.
     *   **Loki**: Structured JSON log aggregation.
     *   **Tempo**: Distributed tracing for request profiling.
-*   **Production Infrastructure**: Kubernetes manifests with HPA, PDB, and graceful shutdown handling.
-*   **Helm Powered**: Template-based deployments for multi-environment support.
-*   **Chaos Engineering**: Pre-defined experiments to validate system resilience.
-*   **Incident Response**: Integrated runbooks and blameless postmortem templates.
 *   **Production-Grade Features**:
     *   **Persistent Storage**: PostgreSQL integration with async SQLAlchemy for reliable data storage.
     *   **Secure Access**: JWT-based authentication for protecting API resources.
     *   **Asynchronous Processing**: Background tasks for handling long-running operations.
     *   **Robust Config**: Environment-driven settings using Pydantic.
+*   **Production Infrastructure**: Kubernetes manifests with HPA, PDB, and graceful shutdown handling.
+*   **Helm Powered**: Template-based deployments for multi-environment support.
+*   **Chaos Engineering**: Pre-defined experiments to validate system resilience.
+*   **Incident Response**: Integrated runbooks and blameless postmortem templates.
 *   **Automation**: GitHub Actions pipeline for linting, security scanning, and deployment.
 
 ## 📁 Repository Structure
@@ -84,9 +130,4 @@ Explore our [Example Postmortem](postmortems/2026-02-12-latency-spike.md) to und
 
 ## 🧪 Chaos Engineering
 
-Explore the new `Database Connection Failure` experiment in `chaos/experiments.yml`. For example, to inject 50% latency:
-
-```bash
-# Update ConfigMap or environment variable
-FAILURE_LATENCY_PROBABILITY=0.5
-```
+Explore the new `Database Connection Failure` experiment in `chaos/experiments.yml`.
