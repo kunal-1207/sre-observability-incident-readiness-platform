@@ -1,0 +1,50 @@
+groups:
+- name: SRE_Alerts
+  rules:
+  - alert: HighLatency
+    expr: histogram_quantile(0.99, sum by (le, endpoint) (rate(http_request_duration_seconds_bucket[5m]))) > 0.5
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High 99th percentile latency on {{ $labels.endpoint }}"
+      description: "Latency is above 500ms for more than 2 minutes."
+      runbook_url: "https://github.com/my-org/sre-readiness/blob/main/runbooks/high-latency.md"
+
+  - alert: HighErrorRate
+    expr: sum(rate(http_errors_total[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High error rate on microservice"
+      description: "Error rate is above 5% for more than 1 minute."
+      runbook_url: "https://github.com/my-org/sre-readiness/blob/main/runbooks/high-error-rate.md"
+
+  - alert: MemoryLeakDetected
+    expr: process_resident_memory_bytes / 1024 / 1024 > 400
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Potential memory leak in {{ $labels.instance }}"
+      description: "Memory usage is above 400MB for more than 5 minutes."
+      runbook_url: "https://github.com/my-org/sre-readiness/blob/main/runbooks/memory-leak.md"
+
+  - alert: DeploymentMismatch
+    expr: kube_deployment_status_replicas_unavailable > 0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Deployment replicas unavailable"
+      description: "One or more replicas are unavailable for more than 5 minutes."
+  - alert: DatabaseConnectionFailure
+    expr: rate(http_errors_total{status="503"}[1m]) > 0
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: "Database connection failed for {{ $labels.instance }}"
+      description: "Service is receiving 503 errors on /ready endpoint, indicating DB is down."
+      runbook_url: "https://github.com/my-org/sre-readiness/blob/main/runbooks/database-failure.md"

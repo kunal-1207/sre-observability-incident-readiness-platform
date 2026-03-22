@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sre-config
+data:
+  FAILURE_LATENCY_PROBABILITY: "0.0"
+  FAILURE_ERROR_PROBABILITY: "0.0"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sre-microservice-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sre-microservice
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sre-microservice-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: sre-microservice

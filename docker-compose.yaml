@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  sre-microservice:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://sre_user:sre_password@postgres:5432/sre_db
+      - SECRET_KEY=development_only_secret
+      - FAILURE_LATENCY_PROBABILITY=0.1
+      - FAILURE_ERROR_PROBABILITY=0.05
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+    depends_on:
+      - postgres
+      - tempo
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=sre_user
+      - POSTGRES_PASSWORD=sre_password
+      - POSTGRES_DB=sre_db
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sre_user -d sre_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./monitoring/tempo/tempo.yml:/etc/tempo.yaml
+    ports:
+      - "4317:4317" # otlp grpc

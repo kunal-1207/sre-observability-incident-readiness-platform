@@ -1,0 +1,58 @@
+name: CI-CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: pip install -r app/requirements.txt pytest
+    - name: Run tests
+      run: pytest app/
+
+  build-and-push:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build Docker image
+      run: docker build -t sre-microservice:${{ github.sha }} -f docker/Dockerfile .
+    - name: Security scan (Trivy)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'sre-microservice:${{ github.sha }}'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        severity: 'CRITICAL,HIGH'
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+    - name: Deploy to K8s
+      run: |
+        helm upgrade --install sre-microservice ./helm/sre-microservice \
+          --set image.tag=${{ github.sha }} \
+          --wait --timeout 5m
+
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Health check
+      run: |
+        curl -f http://sre-microservice/health

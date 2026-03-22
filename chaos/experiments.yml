@@ -1,0 +1,28 @@
+experiments:
+  - name: "Pod Termination"
+    hypothesis: "Terminating a pod will not cause downtime due to 3 replicas and PDB."
+    action: "kubectl delete pod -l app=sre-microservice --limit=1"
+    expected_alerts: ["DeploymentMismatch"]
+    rollback: "None (K8s will restart pod)"
+
+  - name: "Latency Injection"
+    hypothesis: "Increasing latency on /api/resource will trigger HighLatency alert."
+    action: "curl -X PATCH http://sre-microservice/simulate/latency -d 'probability=0.5'"
+    expected_alerts: ["HighLatency"]
+    rollback: "curl -X PATCH http://sre-microservice/simulate/latency -d 'probability=0.0'"
+
+  - name: "Memory Exhaustion"
+    hypothesis: "A memory leak will trigger MemoryLeakDetected alert before OOMKill."
+    action: "curl -X POST http://sre-microservice/simulate/memory-leak"
+    expected_alerts: ["MemoryLeakDetected"]
+    rollback: "kubectl rollout restart deployment sre-microservice"
+
+  - name: "Upstream Timeout"
+    hypothesis: "Upstream timeouts (ID 999) will increase the error rate and trigger HighErrorRate."
+    action: "for i in {1..20}; do curl http://sre-microservice/api/resource?id=999; done"
+    expected_alerts: ["HighErrorRate"]
+  - name: "Database Connection Failure"
+    hypothesis: "Stopping the database will cause /ready to return 503 and trigger DatabaseConnectionFailure alert."
+    action: "docker-compose stop postgres"
+    expected_alerts: ["DatabaseConnectionFailure"]
+    rollback: "docker-compose start postgres"
